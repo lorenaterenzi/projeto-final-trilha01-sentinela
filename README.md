@@ -1,170 +1,84 @@
-# Sentinela — manutenção preditiva de motores industriais
+# Suíte de Testes Automatizados — Sistema Sentinela (Nortemec)
 
-Sistema-alvo da **Trilha 1 (ML clássico)** do Projeto Final da disciplina
-*Testes Automatizados para Modelos de IA* — IEC PUC Minas.
-
-O Sentinela é o modelo que a manutenção da **Nortemec** usa para decidir se
-abre uma ordem de manutenção preventiva num motor elétrico. Ele responde a uma
-pergunta só:
-
-> este motor vai falhar nas próximas 72 horas?
-
-A entrada são leituras horárias de sensores. A saída é uma probabilidade e uma
-decisão binária. **Está em produção desde maio de 2026** e ninguém nunca
-escreveu um teste para ele.
-
-**Você não vai construir este sistema. Você vai testá-lo.**
+**Disciplina:** Testes Automatizados para Modelos de IA  
+**Projeto Final (Trilha 1 — ML Clássico)**
 
 ---
 
-## Instalação
+## 1. Visão Geral
+Este repositório contém a suíte externa de testes automatizados para o sistema **Sentinela** (manutenção preditiva industrial de motores elétricos). O objetivo é validar contratos de dados, estabilidade estatística, robustez adversarial e identificar defeitos do pipeline sem modificar o pacote `sentinela`.
 
-Precisa de Python 3.10+.
+---
 
+## 2. Estrutura dos Testes
+
+- `tests/test_01_preprocessamento.py`: Validação de contratos de dados, checagem de nulos e conversão de unidades (bar vs. PSI).
+- `tests/test_02_features.py`: Verificação de ordenação de linhas e testes de vazamento temporal (*data leakage*).
+- `tests/test_03_estatistico.py`: Avaliação de Falsos Negativos entre v1 e v2 e calibração de probabilidades.
+- `tests/test_04_adversarial.py`: Testes de sensibilidade ao ruído térmico e testes contrafactuais (`id_operador`).
+
+---
+
+## 3. Como Executar os Testes
+
+Para executar a suíte de testes do zero no seu computador, siga o passo a passo abaixo no terminal do VS Code:
+
+### 1. Clonar o repositório
+```powershell
+git clone https://github.com/lorenaterenzi/projeto-final-trilha01-sentinela.git
+cd projeto-final-trilha01-sentinela
+```
+
+### 2. Criar e ativar o ambiente virtual (Python)
+- Criar o ambiente virtual na pasta venv:
 ```bash
-git clone https://github.com/felipehp/sentinela-nortemec.git sentinela
-cd sentinela
+python -m venv venv 
+ ```
+
+- Ativar o ambiente virtual:
+``` bash
+# No Windows (PowerShell):
+.\venv\Scripts\activate
+
+# No Linux ou macOS:
+source venv/bin/activate
+```
+(Certifique-se de que o prefixo (venv) apareceu no início da linha do terminal).
+
+### 3. Instalar o pacote Sentinela e as dependências
+- Instalar o pacote sentinela em modo editável:
+```bash
 pip install -e .
-pip install pytest
 ```
-
-No Google Colab:
-
-```python
-!git clone https://github.com/felipehp/sentinela-nortemec.git sentinela
-%cd sentinela
-!pip install -e . -q
+- Instalar as ferramentas de teste e análise de dados:
+```bash
+pip install pytest pandas numpy
 ```
-
-Confira:
-
-```python
-import sentinela as sn
-
-bruto = sn.dados.carregar("teste")
-saida = sn.pipeline.executar(bruto, versao="v1")
-print(sn.avaliacao.metricas(saida["falha_72h"], saida["predicao"]))
-```
-
-A inferência é **numpy puro** — os modelos são JSON, não pickle. Você não
-precisa de scikit-learn para nada, exceto se quiser retreinar
-(`pip install scikit-learn && python scripts/treinar.py`, opcional).
-
-Se preferir não instalar nada, `pytest` rodado da raiz deste repositório já
-enxerga o pacote (há um `conftest.py` que põe `src/` no `sys.path`).
-
----
-
-## Os dados
-
-Três conjuntos, em `dados/`, recortados em janelas de tempo consecutivas da
-mesma planta:
-
-| conjunto | período | linhas | o que é |
-|---|---|---|---|
-| `treino` | dias 1–28 | 16.800 | usado para treinar os modelos v1 e v2 |
-| `teste` | dias 29–35 | 4.200 | usado para reportar o desempenho |
-| `producao` | dias 36–42 | 4.200 | lote que rodou em produção, rotulado depois pela equipe |
-
-25 motores, uma leitura por motor por hora.
-
-> Os dados são **sintéticos**, gerados por um simulador da planta. O simulador
-> **não** acompanha este repositório, de propósito: descobrir como os dados se
-> comportam faz parte do trabalho. Nada aqui é apresentado como dado real de
-> uma empresa real.
-
-### Ficha técnica dos sensores (contrato de dados da planta)
-
-| coluna | unidade | faixa de operação | observação |
-|---|---|---|---|
-| `temperatura_c` | °C | 45 – 95 | ruído do sensor: **± 1,0 °C** |
-| `vibracao_rms` | mm/s | 1,2 – 8,0 | o sensor tem *dropout* conhecido; a leitura vem vazia |
-| `pressao` | ver `unidade_pressao` | 3,0 – 4,5 bar | alguns CLPs da planta reportam em **psi** (1 bar = 14,5038 psi) |
-| `corrente_a` | A | 12 – 30 | |
-| `rpm` | rpm | 1.650 – 1.800 | leitura com o eixo parado não é medição válida |
-| `idade_equipamento_meses` | meses | 6 – 180 | |
-| `id_operador` | — | `OP-01`..`OP-12` | operador responsável pelo turno |
-| `turno` | — | 1, 2, 3 | |
-| `falha_72h` | — | 0 ou 1 | **alvo**: houve falha nas 72 h seguintes |
-
----
-
-## Os modelos
-
-Duas versões, ambas florestas de decisão, em `artefatos/`:
-
-- **`v1`** — linha de base, em produção desde maio/2026. Floresta rasa,
-  treinada com reponderação de classe.
-- **`v2`** — candidata a substituir a v1. Floresta mais profunda, sem
-  reponderação. **Ganhou +3,5 pontos percentuais de acurácia no conjunto de
-  teste**, e por isso a equipe pretende promovê-la.
-
-O limiar de decisão é `0.5` em todo o sistema.
-
----
-
-## Interface pública
-
-É isto que a sua suíte tem para segurar. Cada função é uma costura testável.
-
-```python
-import sentinela as sn
-
-# --- dados ----------------------------------------------------------------
-bruto = sn.dados.carregar("treino")        # "treino" | "teste" | "producao"
-
-# --- etapas do pipeline ---------------------------------------------------
-limpo = sn.preprocessamento.limpar(bruto)  # tipos, faltantes, normalização
-X     = sn.features.construir(limpo)       # as 13 features, na ordem do modelo
-sn.features.ORDEM_FEATURES                 # a ordem canônica
-
-# --- modelo ---------------------------------------------------------------
-modelo = sn.modelo.carregar("v1")          # "v1" | "v2"
-modelo.prever_proba(X)                     # probabilidade por linha
-modelo.prever(X, limiar=0.5)               # decisão binária
-modelo.prever_registro({...})              # uma leitura só (painel da sala de controle)
-
-# --- ponta a ponta --------------------------------------------------------
-saida = sn.pipeline.executar(bruto, versao="v1", limiar=0.5)
-# colunas: id_maquina, timestamp, probabilidade, predicao [, falha_72h]
-
-# --- avaliação ------------------------------------------------------------
-sn.avaliacao.matriz_confusao(y_real, y_predito)   # vp, vn, fp, fn
-sn.avaliacao.metricas(y_real, y_predito)          # acurácia, precisão, recall, f1
-
-# --- integridade ----------------------------------------------------------
-sn.artefatos.verificar_manifest()          # [] quando dados e modelos batem com o manifest
-```
-
-`avaliacao` expõe só o que o painel da manutenção acompanha. Qualquer métrica
-além dessas — PR-AUC, curva de calibração, intervalo de confiança, teste de
-drift — você calcula na sua própria suíte. Isso é de propósito.
-
----
-
-## Primeiro teste
-
-Em `exemplos/test_exemplo.py` há três testes que passam. Rode:
+### 4. Executar a suíte completa de testes
+Com o ambiente virtual ativo e as dependências instaladas:
 
 ```bash
-pytest exemplos/ -v
+pytest -v
 ```
 
-Use como ponto de partida — e note que eles não provam quase nada. O trabalho
-começa onde eles param.
+## 4. Log de Execução da Suíte
+```powershell
+============================= test session starts =============================
+platform win32 -- Python 3.13.7, pytest-9.1.1, pluggy-1.6.0
+collected 12 items
 
----
+exemplos/test_exemplo.py::test_artefatos_batem_com_o_manifest PASSED      [  8%]
+exemplos/test_exemplo.py::test_features_preservam_linhas_e_ordem_das_colunas PASSED [ 16%]
+exemplos/test_exemplo.py::test_pipeline_devolve_decisao_binaria_para_cada_leitura PASSED [ 25%]
+tests/test_01_preprocessamento.py::test_faixa_e_unidade_pressao_contrato_dados FAILED [ 33%]
+tests/test_01_preprocessamento.py::test_respeito_faixa_temperatura PASSED      [ 41%]
+tests/test_01_preprocessamento.py::test_sem_valores_ausentes_apos_limpeza PASSED [ 50%]
+tests/test_02_features.py::test_sem_vazamento_temporal_features PASSED          [ 58%]
+tests/test_02_features.py::test_invariancia_ordem_linhas_features PASSED          [ 66%]
+tests/test_03_estatistico.py::test_comparacao_v1_vs_v2_falsos_negativos_criticos FAILED [ 75%]
+tests/test_03_estatistico.py::test_calibracao_probabilidades PASSED                      [ 83%]
+tests/test_04_adversarial.py::test_estabilidade_ruido_menor_que_sensor FAILED            [ 91%]
+tests/test_04_adversarial.py::test_contrafactual_id_operador_nao_altera_decisao FAILED   [100%]
 
-## O que a Nortemec te contratou para fazer
-
-Escrever a suíte de testes que este sistema nunca teve, e dizer o que ela
-encontrou. **O sistema tem defeitos reais.** Alguns aparecem em cinco minutos;
-outros só aparecem para quem formula uma hipótese e desenha o teste que a
-mata.
-
-Leia **`guia-do-aluno.md`** para o que entregar, como é avaliado e por onde
-começar.
-
-**Regra de ouro:** não edite o pacote `sentinela`. Você é o time de testes, não
-o time de desenvolvimento. Um defeito encontrado se documenta com um teste que
-falha — não com um `git commit` que o esconde.
+========================= 4 failed, 8 passed in 3.02s =========================
+```
