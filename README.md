@@ -6,7 +6,7 @@
 ---
 
 ## 1. Visão Geral
-Este repositório contém a suíte externa de testes automatizados para o sistema **Sentinela** (manutenção preditiva industrial de motores elétricos). O objetivo é validar contratos de dados, estabilidade estatística, robustez adversarial e identificar defeitos do pipeline sem modificar o pacote `sentinela`.
+Este repositório contém a suíte externa de testes automatizados para o sistema **Sentinela** (manutenção preditiva industrial de motores elétricos). O objetivo é validar contratos de dados, estabilidade estatística, robustez adversarial e identificar defeitos do pipeline sem modificar o pacote `sentinela`. O relatório técnico se encontra no arquivo [relatorio.md](https://github.com/lorenaterenzi/projeto-final-trilha01-sentinela/blob/main/relatorio.md)
 
 ---
 
