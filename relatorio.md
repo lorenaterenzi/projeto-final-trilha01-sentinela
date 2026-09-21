@@ -4,7 +4,7 @@
 
 ---
 
-## 1. Resumo Executivo
+## 1. Visão Geral
 Este relatório apresenta os resultados da avaliação de qualidade, integridade de dados, estabilidade estatística e robustez do sistema **Sentinela**. A suíte de testes desenvolvida identificou falhas operacionais e conceituais críticas no pipeline de dados e na transição do modelo v1 para o modelo candidato v2.
 
 ---
