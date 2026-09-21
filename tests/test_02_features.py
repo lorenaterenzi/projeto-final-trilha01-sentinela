@@ -12,18 +12,18 @@ def test_sem_vazamento_temporal_features():
     )
     limpo = sn.preprocessamento.limpar(bruto)
 
-    # Pegamos apenas o primeiro motor
+    # pega apenas o primeiro motor
     id_primeiro_motor = limpo["id_maquina"].iloc[0]
     df_orig = limpo[limpo["id_maquina"] == id_primeiro_motor].copy()
 
-    # Construímos as features originais
+    # features originais
     X_orig = sn.features.construir(df_orig)
 
-    # Alteramos a temperatura na ÚLTIMA linha (futuro)
+    # temperatura na ÚLTIMA linha (futuro)
     df_mod = df_orig.copy()
     df_mod.iloc[-1, df_mod.columns.get_loc("temperatura_c")] += 50.0
 
-    # Recalculamos as features
+    # recalcula as features
     X_mod = sn.features.construir(df_mod)
 
     # A PRIMEIRA linha (passado) não pode mudar
@@ -41,9 +41,9 @@ def test_invariancia_ordem_linhas_features():
 
     X_normal = sn.features.construir(limpo)
 
-    # Embaralha as linhas
+    # embaralha as linhas
     limpo_shuffled = limpo.sample(frac=1, random_state=42)
     X_shuffled = sn.features.construir(limpo_shuffled)
 
-    # Verifica se devolveu as mesmas linhas na ordem do de entrada
+    # verifica se devolveu as mesmas linhas na ordem do de entrada
     pd.testing.assert_frame_equal(X_normal, X_shuffled.reindex(X_normal.index))
